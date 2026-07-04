@@ -1,6 +1,6 @@
 import type { Key } from '@heroui/react'
 import { ToggleButton, ToggleButtonGroup } from '@heroui/react'
-import type { VisualizerMode } from '../domain/useVisualizerLoop'
+import type { VisualizerMode } from './useVisualizerLoop'
 
 interface ModeToggleProps {
   mode: VisualizerMode

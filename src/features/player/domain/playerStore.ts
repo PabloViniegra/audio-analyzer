@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create, type StoreApi } from 'zustand'
 import { clamp } from '../../../shared/utils/clamp'
 import { createAudioGraph, type AudioGraph } from './audioGraph'
 import { decodeAudioFile } from './decodeAudioFile'
@@ -78,6 +78,23 @@ export const initialPlayerState: PlayerData = {
   loop: false,
 }
 
+/**
+ * A source only marks playback finished if it's still the current one —
+ * `seek()` replaces `audioGraph.source` with a fresh node, and the old
+ * node's `onended` can still fire after being stopped/disconnected.
+ */
+function resetToReadyWhenCurrent(
+  set: StoreApi<PlayerState>['setState'],
+  get: StoreApi<PlayerState>['getState'],
+  source: AudioBufferSourceNode,
+) {
+  return () => {
+    if (get().audioGraph?.source === source) {
+      set({ status: 'ready', audioGraph: null, currentTime: 0 })
+    }
+  }
+}
+
 function teardownGraph(graph: AudioGraph | null) {
   if (!graph) return
   try {
@@ -138,11 +155,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // looping source never fires `onended` on its own, so the reset-to-
     // 'ready' below simply won't run again until loop is turned off.
     graph.source.loop = loop
-    graph.source.onended = () => {
-      if (get().audioGraph?.source === graph.source) {
-        set({ status: 'ready', audioGraph: null, currentTime: 0 })
-      }
-    }
+    graph.source.onended = resetToReadyWhenCurrent(set, get, graph.source)
     // Start from `currentTime` rather than always 0, so a seek performed
     // before the first play() (while there's no graph yet) is honored.
     graph.source.start(0, currentTime)
@@ -197,11 +210,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // The replacement source starts fresh — it doesn't inherit `loop` from
     // the old one, so it has to be carried over explicitly.
     newSource.loop = loop
-    newSource.onended = () => {
-      if (get().audioGraph?.source === newSource) {
-        set({ status: 'ready', audioGraph: null, currentTime: 0 })
-      }
-    }
+    newSource.onended = resetToReadyWhenCurrent(set, get, newSource)
     newSource.start(0, target)
 
     set({

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CanvasSize } from '../domain/drawBars'
-import { useVisualizerLoop, type VisualizerMode } from '../domain/useVisualizerLoop'
+import { useVisualizerLoop, type VisualizerMode } from './useVisualizerLoop'
 
 export type { VisualizerMode }
 

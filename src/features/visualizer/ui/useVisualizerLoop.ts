@@ -1,7 +1,7 @@
 import type { RefObject } from 'react'
 import { useEffect } from 'react'
-import { drawBars, type CanvasSize } from './drawBars'
-import { drawWaveform } from './drawWaveform'
+import { drawBars, type CanvasSize } from '../domain/drawBars'
+import { drawWaveform } from '../domain/drawWaveform'
 
 export type VisualizerMode = 'bars' | 'waveform'
 
