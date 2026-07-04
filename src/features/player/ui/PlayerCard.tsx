@@ -31,6 +31,10 @@ export function PlayerCard() {
     if (file) void loadFile(file)
   }
 
+  function handleFileDrop(file: File) {
+    void loadFile(file)
+  }
+
   function handleToggle() {
     if (status === 'playing') {
       pause()
@@ -48,7 +52,7 @@ export function PlayerCard() {
         {status === 'loading' && <Spinner aria-label="Decoding audio file" />}
 
         {(status === 'idle' || status === 'error') && (
-          <IdlePrompt onBrowseClick={handleBrowseClick} />
+          <IdlePrompt onBrowseClick={handleBrowseClick} onFileDrop={handleFileDrop} />
         )}
 
         {(status === 'ready' || status === 'playing' || status === 'paused') && (
