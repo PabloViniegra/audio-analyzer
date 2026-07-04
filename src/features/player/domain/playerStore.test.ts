@@ -30,7 +30,7 @@ class MockAudioContext {
     start: vi.fn(),
     stop: vi.fn(),
   }))
-  createGain = vi.fn(() => createMockNode())
+  createGain = vi.fn(() => ({ ...createMockNode(), gain: { value: 1 } }))
   createAnalyser = vi.fn(() => createMockNode())
 }
 
@@ -263,6 +263,99 @@ describe('usePlayerStore', () => {
 
       expect(usePlayerStore.getState().status).toBe('ready')
       expect(usePlayerStore.getState().currentTime).toBe(0)
+    })
+  })
+
+  describe('volume and mute transitions', () => {
+    it('defaults to full volume and unmuted', () => {
+      expect(usePlayerStore.getState().volume).toBe(1)
+      expect(usePlayerStore.getState().muted).toBe(false)
+    })
+
+    it('setVolume updates the stored level and clamps to [0, 1]', () => {
+      usePlayerStore.getState().setVolume(0.4)
+      expect(usePlayerStore.getState().volume).toBeCloseTo(0.4)
+
+      usePlayerStore.getState().setVolume(1.5)
+      expect(usePlayerStore.getState().volume).toBe(1)
+
+      usePlayerStore.getState().setVolume(-1)
+      expect(usePlayerStore.getState().volume).toBe(0)
+    })
+
+    it('setVolume updates the GainNode value live while a graph exists', async () => {
+      await usePlayerStore.getState().loadFile(fakeFile())
+      usePlayerStore.getState().play()
+
+      usePlayerStore.getState().setVolume(0.3)
+
+      expect(usePlayerStore.getState().audioGraph?.gainNode.gain.value).toBeCloseTo(0.3)
+    })
+
+    it('play() applies a volume set before the first play() to the freshly built graph', async () => {
+      await usePlayerStore.getState().loadFile(fakeFile())
+      usePlayerStore.getState().setVolume(0.5)
+
+      usePlayerStore.getState().play()
+
+      expect(usePlayerStore.getState().audioGraph?.gainNode.gain.value).toBeCloseTo(0.5)
+    })
+
+    it('setMuted(true) forces the GainNode to 0 without changing the stored volume', async () => {
+      await usePlayerStore.getState().loadFile(fakeFile())
+      usePlayerStore.getState().play()
+      usePlayerStore.getState().setVolume(0.6)
+
+      usePlayerStore.getState().setMuted(true)
+
+      expect(usePlayerStore.getState().muted).toBe(true)
+      expect(usePlayerStore.getState().volume).toBeCloseTo(0.6)
+      expect(usePlayerStore.getState().audioGraph?.gainNode.gain.value).toBe(0)
+    })
+
+    it('setMuted(false) restores the previous volume level on the GainNode', async () => {
+      await usePlayerStore.getState().loadFile(fakeFile())
+      usePlayerStore.getState().play()
+      usePlayerStore.getState().setVolume(0.6)
+      usePlayerStore.getState().setMuted(true)
+
+      usePlayerStore.getState().setMuted(false)
+
+      expect(usePlayerStore.getState().muted).toBe(false)
+      expect(usePlayerStore.getState().audioGraph?.gainNode.gain.value).toBeCloseTo(0.6)
+    })
+
+    it('changing volume while muted is silent until unmute, then applies the latest level', async () => {
+      await usePlayerStore.getState().loadFile(fakeFile())
+      usePlayerStore.getState().play()
+      usePlayerStore.getState().setVolume(0.6)
+      usePlayerStore.getState().setMuted(true)
+
+      usePlayerStore.getState().setVolume(0.2)
+      expect(usePlayerStore.getState().audioGraph?.gainNode.gain.value).toBe(0)
+
+      usePlayerStore.getState().setMuted(false)
+      expect(usePlayerStore.getState().audioGraph?.gainNode.gain.value).toBeCloseTo(0.2)
+    })
+
+    it('mute set before the first play() is honored by the freshly built graph', async () => {
+      await usePlayerStore.getState().loadFile(fakeFile())
+      usePlayerStore.getState().setMuted(true)
+
+      usePlayerStore.getState().play()
+
+      expect(usePlayerStore.getState().audioGraph?.gainNode.gain.value).toBe(0)
+      expect(usePlayerStore.getState().volume).toBe(1)
+    })
+
+    it('loading a new file preserves the current volume and mute settings', async () => {
+      usePlayerStore.getState().setVolume(0.7)
+      usePlayerStore.getState().setMuted(true)
+
+      await usePlayerStore.getState().loadFile(fakeFile('second.mp3'))
+
+      expect(usePlayerStore.getState().volume).toBeCloseTo(0.7)
+      expect(usePlayerStore.getState().muted).toBe(true)
     })
   })
 })

@@ -5,8 +5,10 @@ import { VisualizerCanvas } from '../../visualizer/ui/VisualizerCanvas'
 import { usePlaybackTicker } from '../domain/usePlaybackTicker'
 import { usePlayerStore } from '../domain/playerStore'
 import { IdlePrompt } from './IdlePrompt'
+import { MuteButton } from './MuteButton'
 import { PlayPauseButton } from './PlayPauseButton'
 import { SeekBar } from './SeekBar'
+import { VolumeSlider } from './VolumeSlider'
 
 export function PlayerCard() {
   const status = usePlayerStore((state) => state.status)
@@ -14,10 +16,14 @@ export function PlayerCard() {
   const analyserNode = usePlayerStore((state) => state.audioGraph?.analyserNode ?? null)
   const duration = usePlayerStore((state) => state.duration)
   const currentTime = usePlayerStore((state) => state.currentTime)
+  const volume = usePlayerStore((state) => state.volume)
+  const muted = usePlayerStore((state) => state.muted)
   const loadFile = usePlayerStore((state) => state.loadFile)
   const play = usePlayerStore((state) => state.play)
   const pause = usePlayerStore((state) => state.pause)
   const seek = usePlayerStore((state) => state.seek)
+  const setVolume = usePlayerStore((state) => state.setVolume)
+  const setMuted = usePlayerStore((state) => state.setMuted)
   const dismissError = usePlayerStore((state) => state.dismissError)
 
   usePlaybackTicker()
@@ -69,6 +75,10 @@ export function PlayerCard() {
         {(status === 'ready' || status === 'playing' || status === 'paused') && (
           <div className="flex w-full flex-col items-center gap-3">
             <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
+            <div className="flex w-full items-center gap-3">
+              <MuteButton isMuted={muted} onToggle={setMuted} />
+              <VolumeSlider volume={volume} onVolumeChange={setVolume} />
+            </div>
             <div className="flex items-center gap-3">
               <PlayPauseButton isPlaying={status === 'playing'} onToggle={handleToggle} />
               <Button variant="secondary" onPress={handleBrowseClick}>

@@ -24,6 +24,14 @@ interface PlayerData {
    * clock along with the source. Internal bookkeeping, not for UI reads.
    */
   originTime: number
+  /**
+   * Desired playback gain in [0, 1] — what the volume slider shows. Kept
+   * separate from `muted` so un-muting can restore it: muting never
+   * overwrites this value, it only forces the GainNode's actual gain to 0.
+   */
+  volume: number
+  /** When true, the GainNode's actual gain is forced to 0 regardless of `volume`. */
+  muted: boolean
 }
 
 interface PlayerState extends PlayerData {
@@ -34,6 +42,10 @@ interface PlayerState extends PlayerData {
   seek: (time: number) => void
   /** Recomputes `currentTime` from the audio clock. Call while playing. */
   updateCurrentTime: () => void
+  /** Sets the desired volume level, clamped to [0, 1]. No audible effect while muted. */
+  setVolume: (level: number) => void
+  /** Mutes/unmutes playback. Un-muting restores the current `volume` level. */
+  setMuted: (muted: boolean) => void
   dismissError: () => void
 }
 
@@ -46,6 +58,8 @@ export const initialPlayerState: PlayerData = {
   duration: 0,
   currentTime: 0,
   originTime: 0,
+  volume: 1,
+  muted: false,
 }
 
 function teardownGraph(graph: AudioGraph | null) {
@@ -88,7 +102,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   play() {
-    const { status, audioBuffer, audioContext, audioGraph, currentTime } = get()
+    const { status, audioBuffer, audioContext, audioGraph, currentTime, volume, muted } = get()
     if (!audioBuffer || (status !== 'ready' && status !== 'paused')) return
 
     if (audioGraph && audioContext) {
@@ -99,6 +113,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     const context = audioContext ?? new AudioContext()
     const graph = createAudioGraph(context, audioBuffer)
+    // Apply volume/mute set before this Track was ever played (there's no
+    // graph yet to carry a gain value until now) — same idea as honoring a
+    // pre-first-play seek offset below.
+    graph.gainNode.gain.value = muted ? 0 : volume
     graph.source.onended = () => {
       if (get().audioGraph?.source === graph.source) {
         set({ status: 'ready', audioGraph: null, currentTime: 0 })
@@ -173,6 +191,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const { status, audioContext, duration, originTime } = get()
     if (status !== 'playing' || !audioContext) return
     set({ currentTime: clamp(audioContext.currentTime - originTime, 0, duration) })
+  },
+
+  setVolume(level) {
+    const target = clamp(level, 0, 1)
+    const { muted, audioGraph } = get()
+    // While muted, the audible gain stays at 0 — the new level is only
+    // stored, and takes effect once `setMuted(false)` restores it.
+    if (audioGraph && !muted) {
+      audioGraph.gainNode.gain.value = target
+    }
+    set({ volume: target })
+  },
+
+  setMuted(muted) {
+    const { volume, audioGraph } = get()
+    if (audioGraph) {
+      audioGraph.gainNode.gain.value = muted ? 0 : volume
+    }
+    set({ muted })
   },
 
   dismissError() {
