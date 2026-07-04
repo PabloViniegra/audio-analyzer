@@ -15,6 +15,7 @@ function createMockNode() {
 
 class MockAudioContext {
   state: 'running' | 'suspended' | 'closed' = 'suspended'
+  currentTime = 0
   destination = {}
   resume = vi.fn(async () => {
     this.state = 'running'
@@ -77,7 +78,9 @@ describe('usePlayerStore', () => {
 
     const { status, audioGraph } = usePlayerStore.getState()
     expect(status).toBe('playing')
-    expect(audioGraph?.source.start).toHaveBeenCalledWith(0)
+    // Second arg is the buffer offset to start from (0 here — see the seek tests
+    // below for the non-zero case).
+    expect(audioGraph?.source.start).toHaveBeenCalledWith(0, 0)
   })
 
   it('pause() suspends the context and transitions playing -> paused', async () => {
@@ -129,5 +132,137 @@ describe('usePlayerStore', () => {
 
     expect(usePlayerStore.getState().status).toBe('playing')
     expect(usePlayerStore.getState().audioGraph).toBe(currentGraph)
+  })
+
+  describe('seek and time-update transitions', () => {
+    async function loadReadyFile(duration = 120) {
+      vi.stubGlobal(
+        'OfflineAudioContext',
+        class {
+          decodeAudioData = vi.fn().mockResolvedValue({ duration } as AudioBuffer)
+        },
+      )
+      await usePlayerStore.getState().loadFile(fakeFile())
+    }
+
+    it('loadFile sets duration from the decoded buffer', async () => {
+      await loadReadyFile(180)
+
+      expect(usePlayerStore.getState().duration).toBe(180)
+    })
+
+    it('updateCurrentTime derives position from the audio clock while playing', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+      const context = usePlayerStore.getState().audioContext as unknown as MockAudioContext
+
+      context.currentTime = 4.5
+      usePlayerStore.getState().updateCurrentTime()
+
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(4.5)
+    })
+
+    it('updateCurrentTime is a no-op once no longer playing', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+      const context = usePlayerStore.getState().audioContext as unknown as MockAudioContext
+      context.currentTime = 4.5
+      usePlayerStore.getState().updateCurrentTime()
+
+      usePlayerStore.getState().pause()
+      context.currentTime = 99
+      usePlayerStore.getState().updateCurrentTime()
+
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(4.5)
+    })
+
+    it('seek() while playing stops the old source and starts a new one at the target offset', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+      const oldSource = usePlayerStore.getState().audioGraph?.source
+
+      usePlayerStore.getState().seek(30)
+
+      expect(oldSource?.stop).toHaveBeenCalledOnce()
+      expect(oldSource?.disconnect).toHaveBeenCalledOnce()
+      const graph = usePlayerStore.getState().audioGraph
+      expect(graph?.source).not.toBe(oldSource)
+      expect(graph?.source.start).toHaveBeenCalledWith(0, 30)
+      expect(usePlayerStore.getState().currentTime).toBe(30)
+      expect(usePlayerStore.getState().status).toBe('playing')
+    })
+
+    it('seek() reuses the existing gain/analyser nodes instead of rebuilding the graph', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+      const { gainNode, analyserNode } = usePlayerStore.getState().audioGraph!
+
+      usePlayerStore.getState().seek(30)
+
+      const graph = usePlayerStore.getState().audioGraph
+      expect(graph?.gainNode).toBe(gainNode)
+      expect(graph?.analyserNode).toBe(analyserNode)
+      expect(graph?.source.connect).toHaveBeenCalledWith(gainNode)
+    })
+
+    it('seek() clamps a target past the end of the Track to the duration', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+
+      usePlayerStore.getState().seek(999)
+
+      expect(usePlayerStore.getState().currentTime).toBe(120)
+    })
+
+    it('seek() clamps a negative target to zero', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+
+      usePlayerStore.getState().seek(-10)
+
+      expect(usePlayerStore.getState().currentTime).toBe(0)
+    })
+
+    it('seek() before the first play() only remembers the offset', async () => {
+      await loadReadyFile(120)
+
+      usePlayerStore.getState().seek(45)
+
+      expect(usePlayerStore.getState().currentTime).toBe(45)
+      expect(usePlayerStore.getState().audioContext).toBeNull()
+      expect(usePlayerStore.getState().status).toBe('ready')
+    })
+
+    it('play() after a seek-while-ready starts the source at the sought offset', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().seek(45)
+
+      usePlayerStore.getState().play()
+
+      expect(usePlayerStore.getState().audioGraph?.source.start).toHaveBeenCalledWith(0, 45)
+      expect(usePlayerStore.getState().status).toBe('playing')
+    })
+
+    it('seek() while paused updates the position without resuming playback', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+      usePlayerStore.getState().pause()
+
+      usePlayerStore.getState().seek(60)
+
+      expect(usePlayerStore.getState().status).toBe('paused')
+      expect(usePlayerStore.getState().currentTime).toBe(60)
+    })
+
+    it('onended resets currentTime to 0 so replaying starts from the beginning', async () => {
+      await loadReadyFile(120)
+      usePlayerStore.getState().play()
+      const source = usePlayerStore.getState().audioGraph?.source
+
+      source?.onended?.(new Event('ended'))
+
+      expect(usePlayerStore.getState().status).toBe('ready')
+      expect(usePlayerStore.getState().currentTime).toBe(0)
+    })
   })
 })

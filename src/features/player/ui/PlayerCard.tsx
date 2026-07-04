@@ -2,18 +2,25 @@ import type { ChangeEvent } from 'react'
 import { useEffect, useRef } from 'react'
 import { Button, Card, Spinner, toast } from '@heroui/react'
 import { VisualizerCanvas } from '../../visualizer/ui/VisualizerCanvas'
+import { usePlaybackTicker } from '../domain/usePlaybackTicker'
 import { usePlayerStore } from '../domain/playerStore'
 import { IdlePrompt } from './IdlePrompt'
 import { PlayPauseButton } from './PlayPauseButton'
+import { SeekBar } from './SeekBar'
 
 export function PlayerCard() {
   const status = usePlayerStore((state) => state.status)
   const errorMessage = usePlayerStore((state) => state.errorMessage)
   const analyserNode = usePlayerStore((state) => state.audioGraph?.analyserNode ?? null)
+  const duration = usePlayerStore((state) => state.duration)
+  const currentTime = usePlayerStore((state) => state.currentTime)
   const loadFile = usePlayerStore((state) => state.loadFile)
   const play = usePlayerStore((state) => state.play)
   const pause = usePlayerStore((state) => state.pause)
+  const seek = usePlayerStore((state) => state.seek)
   const dismissError = usePlayerStore((state) => state.dismissError)
+
+  usePlaybackTicker()
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -60,11 +67,14 @@ export function PlayerCard() {
         )}
 
         {(status === 'ready' || status === 'playing' || status === 'paused') && (
-          <div className="flex items-center gap-3">
-            <PlayPauseButton isPlaying={status === 'playing'} onToggle={handleToggle} />
-            <Button variant="secondary" onPress={handleBrowseClick}>
-              Load another file
-            </Button>
+          <div className="flex w-full flex-col items-center gap-3">
+            <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
+            <div className="flex items-center gap-3">
+              <PlayPauseButton isPlaying={status === 'playing'} onToggle={handleToggle} />
+              <Button variant="secondary" onPress={handleBrowseClick}>
+                Load another file
+              </Button>
+            </div>
           </div>
         )}
 
