@@ -5,6 +5,7 @@ import { VisualizerCanvas } from '../../visualizer/ui/VisualizerCanvas'
 import { usePlaybackTicker } from '../domain/usePlaybackTicker'
 import { usePlayerStore } from '../domain/playerStore'
 import { IdlePrompt } from './IdlePrompt'
+import { LoopButton } from './LoopButton'
 import { MuteButton } from './MuteButton'
 import { PlayPauseButton } from './PlayPauseButton'
 import { SeekBar } from './SeekBar'
@@ -18,12 +19,14 @@ export function PlayerCard() {
   const currentTime = usePlayerStore((state) => state.currentTime)
   const volume = usePlayerStore((state) => state.volume)
   const muted = usePlayerStore((state) => state.muted)
+  const loop = usePlayerStore((state) => state.loop)
   const loadFile = usePlayerStore((state) => state.loadFile)
   const play = usePlayerStore((state) => state.play)
   const pause = usePlayerStore((state) => state.pause)
   const seek = usePlayerStore((state) => state.seek)
   const setVolume = usePlayerStore((state) => state.setVolume)
   const setMuted = usePlayerStore((state) => state.setMuted)
+  const setLoop = usePlayerStore((state) => state.setLoop)
   const dismissError = usePlayerStore((state) => state.dismissError)
 
   usePlaybackTicker()
@@ -81,6 +84,7 @@ export function PlayerCard() {
             </div>
             <div className="flex items-center gap-3">
               <PlayPauseButton isPlaying={status === 'playing'} onToggle={handleToggle} />
+              <LoopButton isLooping={loop} onToggle={setLoop} />
               <Button variant="secondary" onPress={handleBrowseClick}>
                 Load another file
               </Button>

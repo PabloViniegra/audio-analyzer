@@ -32,6 +32,8 @@ interface PlayerData {
   volume: number
   /** When true, the GainNode's actual gain is forced to 0 regardless of `volume`. */
   muted: boolean
+  /** When true, reaching the end of the Track replays it instead of stopping. */
+  loop: boolean
 }
 
 interface PlayerState extends PlayerData {
@@ -46,6 +48,19 @@ interface PlayerState extends PlayerData {
   setVolume: (level: number) => void
   /** Mutes/unmutes playback. Un-muting restores the current `volume` level. */
   setMuted: (muted: boolean) => void
+  /**
+   * Enables/disables looping. Backed by the AudioBufferSourceNode's native
+   * `loop` flag rather than a manual restart-on-`onended` — it's gapless at
+   * the loop point, and unlike the source's buffer/start offset, `loop` can
+   * be flipped live on an already-playing source with no rebuild. The
+   * tradeoff: a looping source never fires `onended` on its own, so
+   * `updateCurrentTime` wraps `currentTime` with a modulo while loop is on
+   * instead of clamping, and turning loop off mid-playback rebases
+   * `originTime` onto the current lap so that math keeps lining up with the
+   * source's actual (now single-lap) remaining playback once it stops
+   * looping.
+   */
+  setLoop: (loop: boolean) => void
   dismissError: () => void
 }
 
@@ -60,6 +75,7 @@ export const initialPlayerState: PlayerData = {
   originTime: 0,
   volume: 1,
   muted: false,
+  loop: false,
 }
 
 function teardownGraph(graph: AudioGraph | null) {
@@ -102,7 +118,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   play() {
-    const { status, audioBuffer, audioContext, audioGraph, currentTime, volume, muted } = get()
+    const { status, audioBuffer, audioContext, audioGraph, currentTime, volume, muted, loop } =
+      get()
     if (!audioBuffer || (status !== 'ready' && status !== 'paused')) return
 
     if (audioGraph && audioContext) {
@@ -117,6 +134,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // graph yet to carry a gain value until now) — same idea as honoring a
     // pre-first-play seek offset below.
     graph.gainNode.gain.value = muted ? 0 : volume
+    // Native looping (see setLoop's doc comment for why): gapless, and a
+    // looping source never fires `onended` on its own, so the reset-to-
+    // 'ready' below simply won't run again until loop is turned off.
+    graph.source.loop = loop
     graph.source.onended = () => {
       if (get().audioGraph?.source === graph.source) {
         set({ status: 'ready', audioGraph: null, currentTime: 0 })
@@ -144,7 +165,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   seek(time) {
-    const { status, audioBuffer, audioContext, audioGraph } = get()
+    const { status, audioBuffer, audioContext, audioGraph, loop } = get()
     if (!audioBuffer) return
     if (status !== 'playing' && status !== 'paused' && status !== 'ready') return
 
@@ -173,6 +194,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const newSource = audioContext.createBufferSource()
     newSource.buffer = audioBuffer
     newSource.connect(audioGraph.gainNode)
+    // The replacement source starts fresh — it doesn't inherit `loop` from
+    // the old one, so it has to be carried over explicitly.
+    newSource.loop = loop
     newSource.onended = () => {
       if (get().audioGraph?.source === newSource) {
         set({ status: 'ready', audioGraph: null, currentTime: 0 })
@@ -188,9 +212,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   updateCurrentTime() {
-    const { status, audioContext, duration, originTime } = get()
+    const { status, audioContext, duration, originTime, loop } = get()
     if (status !== 'playing' || !audioContext) return
-    set({ currentTime: clamp(audioContext.currentTime - originTime, 0, duration) })
+    const elapsed = audioContext.currentTime - originTime
+    // A native-looping source keeps advancing past `duration` every lap
+    // instead of ending, so wrap it back into a single lap instead of
+    // clamping it flat against the end.
+    const position = loop && duration > 0 ? elapsed % duration : clamp(elapsed, 0, duration)
+    set({ currentTime: position })
   },
 
   setVolume(level) {
@@ -210,6 +239,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       audioGraph.gainNode.gain.value = muted ? 0 : volume
     }
     set({ muted })
+  },
+
+  setLoop(loop) {
+    const { loop: current, audioGraph, audioContext } = get()
+    if (loop === current) return
+
+    // Flips live on an already-playing source — no rebuild needed.
+    if (audioGraph) {
+      audioGraph.source.loop = loop
+    }
+
+    if (!loop && audioContext) {
+      // originTime may be many laps stale (native looping never resets
+      // it), so the plain elapsed/clamp math updateCurrentTime uses once
+      // loop is off would jump straight to `duration`. Refresh the in-lap
+      // position first — still under the OLD loop=true modulo, since state
+      // hasn't flipped yet — then rebase originTime onto it, so it lines up
+      // with the source's actual remaining (now non-looping) playback.
+      get().updateCurrentTime()
+      set({ loop, originTime: audioContext.currentTime - get().currentTime })
+      return
+    }
+
+    set({ loop })
   },
 
   dismissError() {

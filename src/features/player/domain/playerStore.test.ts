@@ -26,6 +26,7 @@ class MockAudioContext {
   createBufferSource = vi.fn(() => ({
     ...createMockNode(),
     buffer: null as AudioBuffer | null,
+    loop: false,
     onended: null as (() => void) | null,
     start: vi.fn(),
     stop: vi.fn(),
@@ -356,6 +357,114 @@ describe('usePlayerStore', () => {
 
       expect(usePlayerStore.getState().volume).toBeCloseTo(0.7)
       expect(usePlayerStore.getState().muted).toBe(true)
+    })
+  })
+
+  describe('loop transitions', () => {
+    async function loadReadyFile(duration = 10) {
+      vi.stubGlobal(
+        'OfflineAudioContext',
+        class {
+          decodeAudioData = vi.fn().mockResolvedValue({ duration } as AudioBuffer)
+        },
+      )
+      await usePlayerStore.getState().loadFile(fakeFile())
+    }
+
+    it('defaults to loop off', () => {
+      expect(usePlayerStore.getState().loop).toBe(false)
+    })
+
+    it('setLoop updates the stored flag', () => {
+      usePlayerStore.getState().setLoop(true)
+      expect(usePlayerStore.getState().loop).toBe(true)
+
+      usePlayerStore.getState().setLoop(false)
+      expect(usePlayerStore.getState().loop).toBe(false)
+    })
+
+    it('play() applies a loop setting made before the first play() to the freshly built source', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().setLoop(true)
+
+      usePlayerStore.getState().play()
+
+      expect(usePlayerStore.getState().audioGraph?.source.loop).toBe(true)
+    })
+
+    it('setLoop flips the native loop flag live on an already-playing source, without rebuilding the graph', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().play()
+      const graphBeforeToggle = usePlayerStore.getState().audioGraph
+
+      usePlayerStore.getState().setLoop(true)
+
+      expect(usePlayerStore.getState().audioGraph).toBe(graphBeforeToggle)
+      expect(usePlayerStore.getState().audioGraph?.source.loop).toBe(true)
+    })
+
+    it('seek() while looping carries the loop flag over to the replacement source', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().play()
+      usePlayerStore.getState().setLoop(true)
+
+      usePlayerStore.getState().seek(3)
+
+      expect(usePlayerStore.getState().audioGraph?.source.loop).toBe(true)
+    })
+
+    it('updateCurrentTime wraps the position with the Track duration once loop is on and playback has passed the end', async () => {
+      await loadReadyFile(10)
+      usePlayerStore.getState().setLoop(true)
+      usePlayerStore.getState().play()
+      const context = usePlayerStore.getState().audioContext as unknown as MockAudioContext
+
+      // 2.5 laps of a 10s Track — a native-looping source is still playing
+      // seamlessly at this point rather than having ended.
+      context.currentTime = 25
+      usePlayerStore.getState().updateCurrentTime()
+
+      expect(usePlayerStore.getState().status).toBe('playing')
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(5)
+    })
+
+    it('disabling loop mid-playback rebases the position onto the current lap, then the Track stops normally once it reaches the real end', async () => {
+      await loadReadyFile(10)
+      usePlayerStore.getState().setLoop(true)
+      usePlayerStore.getState().play()
+      const context = usePlayerStore.getState().audioContext as unknown as MockAudioContext
+
+      context.currentTime = 25 // 2.5 laps in — wrapped position is 5
+      usePlayerStore.getState().updateCurrentTime()
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(5)
+
+      usePlayerStore.getState().setLoop(false)
+
+      // No audio-clock time has passed yet — position must hold at 5, not
+      // jump to `duration`, since a stale (many-laps-old) originTime would
+      // otherwise make the plain elapsed/clamp math read as fully elapsed.
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(5)
+      expect(usePlayerStore.getState().status).toBe('playing')
+
+      // 3 more seconds of real playback — should count up normally from 5,
+      // confirming originTime was rebased rather than left multi-lap stale.
+      context.currentTime = 28
+      usePlayerStore.getState().updateCurrentTime()
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(8)
+
+      // The Track reaches its real end and the (now non-looping) source
+      // fires its normal onended — same reset-to-ready path as loop-off.
+      usePlayerStore.getState().audioGraph?.source.onended?.(new Event('ended'))
+      expect(usePlayerStore.getState().status).toBe('ready')
+      expect(usePlayerStore.getState().currentTime).toBe(0)
+    })
+
+    it('loading a new file preserves the current loop setting', async () => {
+      usePlayerStore.getState().setLoop(true)
+
+      await usePlayerStore.getState().loadFile(fakeFile('second.mp3'))
+
+      expect(usePlayerStore.getState().loop).toBe(true)
     })
   })
 })
