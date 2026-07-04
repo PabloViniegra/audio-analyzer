@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react'
 import { useEffect, useRef } from 'react'
 import { Button, Card, Spinner, toast } from '@heroui/react'
+import { VisualizerCanvas } from '../../visualizer/ui/VisualizerCanvas'
 import { usePlayerStore } from '../domain/playerStore'
 import { IdlePrompt } from './IdlePrompt'
 import { PlayPauseButton } from './PlayPauseButton'
@@ -8,6 +9,7 @@ import { PlayPauseButton } from './PlayPauseButton'
 export function PlayerCard() {
   const status = usePlayerStore((state) => state.status)
   const errorMessage = usePlayerStore((state) => state.errorMessage)
+  const analyserNode = usePlayerStore((state) => state.audioGraph?.analyserNode ?? null)
   const loadFile = usePlayerStore((state) => state.loadFile)
   const play = usePlayerStore((state) => state.play)
   const pause = usePlayerStore((state) => state.pause)
@@ -49,6 +51,8 @@ export function PlayerCard() {
         <Card.Title>Player</Card.Title>
       </Card.Header>
       <Card.Content className="flex flex-col items-center gap-4">
+        <VisualizerCanvas analyserNode={analyserNode} mode="bars" />
+
         {status === 'loading' && <Spinner aria-label="Decoding audio file" />}
 
         {(status === 'idle' || status === 'error') && (
