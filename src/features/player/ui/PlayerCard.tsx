@@ -1,7 +1,8 @@
 import type { ChangeEvent } from 'react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Spinner, toast } from '@heroui/react'
-import { VisualizerCanvas } from '../../visualizer/ui/VisualizerCanvas'
+import { ModeToggle } from '../../visualizer/ui/ModeToggle'
+import { VisualizerCanvas, type VisualizerMode } from '../../visualizer/ui/VisualizerCanvas'
 import { usePlaybackTicker } from '../domain/usePlaybackTicker'
 import { usePlayerStore } from '../domain/playerStore'
 import { IdlePrompt } from './IdlePrompt'
@@ -12,6 +13,11 @@ import { SeekBar } from './SeekBar'
 import { VolumeSlider } from './VolumeSlider'
 
 export function PlayerCard() {
+  // Which Visualizer mode is displayed is a UI display preference, not
+  // playback state, so it lives here as local component state rather than
+  // in the Zustand player store.
+  const [mode, setMode] = useState<VisualizerMode>('bars')
+
   const status = usePlayerStore((state) => state.status)
   const errorMessage = usePlayerStore((state) => state.errorMessage)
   const analyserNode = usePlayerStore((state) => state.audioGraph?.analyserNode ?? null)
@@ -67,7 +73,8 @@ export function PlayerCard() {
         <Card.Title>Player</Card.Title>
       </Card.Header>
       <Card.Content className="flex flex-col items-center gap-4">
-        <VisualizerCanvas analyserNode={analyserNode} mode="bars" />
+        <VisualizerCanvas analyserNode={analyserNode} mode={mode} />
+        <ModeToggle mode={mode} onModeChange={setMode} />
 
         {status === 'loading' && <Spinner aria-label="Decoding audio file" />}
 
