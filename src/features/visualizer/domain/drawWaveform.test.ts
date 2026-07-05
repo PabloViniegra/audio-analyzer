@@ -8,8 +8,12 @@ function fakeCtx() {
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     stroke: vi.fn(),
+    setLineDash: vi.fn(),
     strokeStyle: '',
     lineWidth: 0,
+    globalAlpha: 1,
+    shadowBlur: 0,
+    shadowColor: '',
   } as unknown as CanvasRenderingContext2D
 }
 
@@ -62,25 +66,26 @@ describe('computeWaveformPoints', () => {
 })
 
 describe('drawWaveform', () => {
-  it('clears the canvas and strokes one continuous path through computeWaveformPoints geometry', () => {
+  it('draws the center reference line before stroking the waveform path', () => {
     const ctx = fakeCtx()
 
     drawWaveform(ctx, [0, 255], { width: 100, height: 20 })
 
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 100, 20)
-    expect(ctx.beginPath).toHaveBeenCalledTimes(1)
+    expect(ctx.beginPath).toHaveBeenCalledTimes(2)
     expect(ctx.moveTo).toHaveBeenCalledWith(0, 20)
     expect(ctx.lineTo).toHaveBeenCalledWith(50, 0)
-    expect(ctx.stroke).toHaveBeenCalledTimes(1)
+    expect(ctx.stroke).toHaveBeenCalledTimes(2)
   })
 
-  it('still clears the canvas but draws nothing for empty time-domain data', () => {
+  it('only draws the center reference line for empty time-domain data', () => {
     const ctx = fakeCtx()
 
     drawWaveform(ctx, [], { width: 100, height: 20 })
 
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 100, 20)
-    expect(ctx.beginPath).not.toHaveBeenCalled()
-    expect(ctx.stroke).not.toHaveBeenCalled()
+    expect(ctx.beginPath).toHaveBeenCalledTimes(1)
+    expect(ctx.stroke).toHaveBeenCalledTimes(1)
+    expect(ctx.lineTo).toHaveBeenCalledWith(100, 10)
   })
 })

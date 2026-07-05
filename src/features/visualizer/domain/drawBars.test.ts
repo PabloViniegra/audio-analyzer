@@ -6,6 +6,9 @@ function fakeCtx() {
     clearRect: vi.fn(),
     fillRect: vi.fn(),
     fillStyle: '',
+    shadowBlur: 0,
+    shadowColor: '',
+    createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
   } as unknown as CanvasRenderingContext2D
 }
 
@@ -18,22 +21,19 @@ describe('computeBars', () => {
 
     expect(bars).toHaveLength(5)
 
-    // slotWidth = 200 / 5 = 40, barWidth = 40 * 0.8 = 32 for every bar
+    // slotWidth = 200 / 5 = 40, barWidth = 40 * 0.78 = 31.2 for every bar
     for (const bar of bars) {
-      expect(bar.width).toBe(32)
+      expect(bar.width).toBeCloseTo(31.2, 5)
     }
 
-    // silent bin: zero height, sits flush with the bottom edge
     expect(bars[0]).toMatchObject({ x: 0 })
     expect(bars[0].height).toBe(0)
     expect(bars[0].y).toBe(50)
 
-    // full-scale bin: fills the entire height, starts at the top edge
     expect(bars[4]).toMatchObject({ x: 160 })
     expect(bars[4].height).toBe(50)
     expect(bars[4].y).toBe(0)
 
-    // intermediate bins: amplitude = value / 255, height = amplitude * canvas height
     expect(bars[1].x).toBe(40)
     expect(bars[1].height).toBeCloseTo((64 / 255) * 50, 5)
     expect(bars[1].y).toBeCloseTo(50 - (64 / 255) * 50, 5)
@@ -51,8 +51,8 @@ describe('computeBars', () => {
     const bars = computeBars(new Uint8Array([255, 0]), { width: 100, height: 10 })
 
     expect(bars).toEqual([
-      { x: 0, y: 0, width: 40, height: 10 },
-      { x: 50, y: 10, width: 40, height: 0 },
+      { x: 0, y: 0, width: 39, height: 10 },
+      { x: 50, y: 10, width: 39, height: 0 },
     ])
   })
 
@@ -67,15 +67,14 @@ describe('computeBars', () => {
 })
 
 describe('drawBars', () => {
-  it('clears the canvas and fills one rect per bin with computeBars geometry', () => {
+  it('clears the canvas and fills one bar rect per bin using computeBars geometry', () => {
     const ctx = fakeCtx()
 
     drawBars(ctx, [255, 0], { width: 100, height: 20 })
 
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 100, 20)
-    expect(ctx.fillRect).toHaveBeenCalledTimes(2)
-    expect(ctx.fillRect).toHaveBeenNthCalledWith(1, 0, 0, 40, 20)
-    expect(ctx.fillRect).toHaveBeenNthCalledWith(2, 50, 20, 40, 0)
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 39, 20)
+    expect(ctx.fillRect).toHaveBeenCalledWith(50, 20, 39, 0)
   })
 
   it('still clears the canvas but draws nothing for empty frequency data', () => {
@@ -85,5 +84,15 @@ describe('drawBars', () => {
 
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 100, 20)
     expect(ctx.fillRect).not.toHaveBeenCalled()
+  })
+
+  it('draws a peak-hold bar at the top of each bin above the bar fill', () => {
+    const ctx = fakeCtx()
+
+    drawBars(ctx, [255, 128], { width: 100, height: 20 })
+
+    const calls = (ctx.fillRect as unknown as { mock: { calls: unknown[][] } }).mock.calls
+    const peakCalls = calls.filter((c) => c[3] === 2)
+    expect(peakCalls).toHaveLength(2)
   })
 })

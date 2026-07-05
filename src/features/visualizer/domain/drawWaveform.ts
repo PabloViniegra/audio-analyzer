@@ -1,13 +1,45 @@
-import type { CanvasSize } from './drawBars'
+import type { CanvasSize } from "./drawBars"
 
 export interface WaveformPoint {
   x: number
   y: number
 }
 
-const WAVEFORM_COLOR = '#c4b5fd'
-const WAVEFORM_GLOW = 'rgba(196, 181, 253, 0.4)'
-const WAVEFORM_LINE_WIDTH = 1.8
+const WAVEFORM_LINE_WIDTH = 1.6
+const CENTER_LINE_OPACITY = 0.18
+
+interface VisualizerPalette {
+  barTop: string
+  barBottom: string
+  barGlow: string
+  line: string
+  lineGlow: string
+}
+
+let cachedPalette: VisualizerPalette | null = null
+
+function readPalette(): VisualizerPalette {
+  if (cachedPalette) return cachedPalette
+  if (typeof document === "undefined") {
+    cachedPalette = {
+      barTop: "",
+      barBottom: "",
+      barGlow: "",
+      line: "",
+      lineGlow: "",
+    }
+    return cachedPalette
+  }
+  const styles = getComputedStyle(document.documentElement)
+  cachedPalette = {
+    barTop: styles.getPropertyValue("--visualizer-bar-top").trim(),
+    barBottom: styles.getPropertyValue("--visualizer-bar-bottom").trim(),
+    barGlow: styles.getPropertyValue("--visualizer-bar-glow").trim(),
+    line: styles.getPropertyValue("--visualizer-line").trim(),
+    lineGlow: styles.getPropertyValue("--visualizer-line-glow").trim(),
+  }
+  return cachedPalette
+}
 
 export function computeWaveformPoints(
   timeData: ArrayLike<number>,
@@ -34,15 +66,29 @@ export function drawWaveform(
 ): void {
   ctx.clearRect(0, 0, size.width, size.height)
 
+  const palette = readPalette()
+  const centerY = size.height / 2
+
+  ctx.strokeStyle = palette.line
+  ctx.globalAlpha = CENTER_LINE_OPACITY
+  ctx.lineWidth = 1
+  ctx.setLineDash([2, 4])
+  ctx.beginPath()
+  ctx.moveTo(0, centerY)
+  ctx.lineTo(size.width, centerY)
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.globalAlpha = 1
+
   const points = computeWaveformPoints(timeData, size)
   if (points.length === 0) return
 
-  ctx.strokeStyle = WAVEFORM_COLOR
+  ctx.strokeStyle = palette.line
   ctx.lineWidth = WAVEFORM_LINE_WIDTH
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.shadowBlur = 8
-  ctx.shadowColor = WAVEFORM_GLOW
+  ctx.lineJoin = "round"
+  ctx.lineCap = "round"
+  ctx.shadowBlur = 10
+  ctx.shadowColor = palette.lineGlow
 
   ctx.beginPath()
   ctx.moveTo(points[0].x, points[0].y)
