@@ -8,13 +8,6 @@ interface SeekBarProps {
   onSeek: (time: number) => void
 }
 
-/**
- * Displays track position/duration and lets the user drag to seek. The
- * thumb tracks the drag live (via local state), but the expensive re-seek
- * (stopping/restarting the underlying audio source) only fires once, on
- * release — not on every intermediate `onChange` — to avoid rebuilding the
- * source dozens of times per second while dragging.
- */
 export function SeekBar({ currentTime, duration, onSeek }: SeekBarProps) {
   const [draftTime, setDraftTime] = useState<number | null>(null)
   const displayTime = draftTime ?? currentTime
@@ -34,23 +27,28 @@ export function SeekBar({ currentTime, duration, onSeek }: SeekBarProps) {
   }
 
   return (
-    <Slider
-      aria-label="Seek"
-      className="w-full"
-      maxValue={duration}
-      minValue={0}
-      step={1}
-      value={displayTime}
-      onChange={handleChange}
-      onChangeEnd={handleChangeEnd}
-    >
-      <Slider.Output>
-        {formatTime(displayTime)} / {formatTime(duration)}
-      </Slider.Output>
-      <Slider.Track>
-        <Slider.Fill />
-        <Slider.Thumb />
-      </Slider.Track>
-    </Slider>
+    <div className="flex w-full flex-col gap-2">
+      <Slider
+        aria-label="Seek"
+        className="w-full"
+        maxValue={duration}
+        minValue={0}
+        step={0.1}
+        value={displayTime}
+        onChange={handleChange}
+        onChangeEnd={handleChangeEnd}
+      >
+        <Slider.Output className="numeric flex items-center justify-between text-xs text-muted">
+          <span className="text-foreground">
+            {formatTime(displayTime)}
+          </span>
+          <span>{formatTime(duration)}</span>
+        </Slider.Output>
+        <Slider.Track className="h-1.5">
+          <Slider.Fill className="bg-accent" />
+          <Slider.Thumb className="size-3.5 border-2 border-background bg-accent shadow-[0_0_8px_var(--accent)]" />
+        </Slider.Track>
+      </Slider>
+    </div>
   )
 }

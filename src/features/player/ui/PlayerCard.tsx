@@ -1,21 +1,27 @@
 import type { ChangeEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { Button, Card, Spinner, toast } from '@heroui/react'
-import { ModeToggle } from '../../visualizer/ui/ModeToggle'
-import { VisualizerCanvas, type VisualizerMode } from '../../visualizer/ui/VisualizerCanvas'
+import { Button, Card, Separator, Spinner, toast } from '@heroui/react'
 import { usePlaybackTicker } from '../domain/usePlaybackTicker'
-import { usePlayerStore } from '../domain/playerStore'
+import { usePlayerStore, type PlayerStatus } from '../domain/playerStore'
 import { IdlePrompt } from './IdlePrompt'
 import { LoopButton } from './LoopButton'
+import { ModeToggle } from '../../visualizer/ui/ModeToggle'
+import { VisualizerCanvas, type VisualizerMode } from '../../visualizer/ui/VisualizerCanvas'
 import { MuteButton } from './MuteButton'
 import { PlayPauseButton } from './PlayPauseButton'
 import { SeekBar } from './SeekBar'
 import { VolumeSlider } from './VolumeSlider'
 
+const STATUS_LABEL: Record<PlayerStatus, string> = {
+  idle: 'Standby',
+  loading: 'Decoding',
+  ready: 'Ready',
+  playing: 'Playing',
+  paused: 'Paused',
+  error: 'Error',
+}
+
 export function PlayerCard() {
-  // Which Visualizer mode is displayed is a UI display preference, not
-  // playback state, so it lives here as local component state rather than
-  // in the Zustand player store.
   const [mode, setMode] = useState<VisualizerMode>('bars')
 
   const status = usePlayerStore((state) => state.status)
@@ -67,46 +73,102 @@ export function PlayerCard() {
     }
   }
 
+  const hasTrack =
+    status === 'ready' || status === 'playing' || status === 'paused'
+  const isLive = status === 'playing'
+
   return (
-    <Card className="w-full max-w-md">
-      <Card.Header>
-        <Card.Title>Player</Card.Title>
-      </Card.Header>
-      <Card.Content className="flex flex-col items-center gap-4">
+    <Card className="overflow-hidden p-0">
+      <div className="flex items-center justify-between border-b border-border bg-surface-secondary px-5 py-3">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className={`relative inline-flex size-2 rounded-full ${
+              isLive
+                ? 'bg-accent shadow-[0_0_10px_var(--accent)]'
+                : 'bg-default'
+            }`}
+          >
+            {isLive && (
+              <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />
+            )}
+          </span>
+          <p className="eyebrow">{STATUS_LABEL[status]}</p>
+        </div>
+        <p className="numeric text-xs text-muted">
+          {hasTrack ? 'signal · live' : '— · no signal'}
+        </p>
+      </div>
+
+      <div className="instrument-screen relative flex flex-col gap-3 px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between">
+          <p className="eyebrow">Spectrum</p>
+          <ModeToggle mode={mode} onModeChange={setMode} />
+        </div>
+
         <VisualizerCanvas analyserNode={analyserNode} mode={mode} />
-        <ModeToggle mode={mode} onModeChange={setMode} />
 
-        {status === 'loading' && <Spinner aria-label="Decoding audio file" />}
-
-        {(status === 'idle' || status === 'error') && (
-          <IdlePrompt onBrowseClick={handleBrowseClick} onFileDrop={handleFileDrop} />
-        )}
-
-        {(status === 'ready' || status === 'playing' || status === 'paused') && (
-          <div className="flex w-full flex-col items-center gap-3">
-            <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
-            <div className="flex w-full items-center gap-3">
-              <MuteButton isMuted={muted} onToggle={setMuted} />
-              <VolumeSlider volume={volume} onVolumeChange={setVolume} />
-            </div>
-            <div className="flex items-center gap-3">
-              <PlayPauseButton isPlaying={status === 'playing'} onToggle={handleToggle} />
-              <LoopButton isLooping={loop} onToggle={setLoop} />
-              <Button variant="secondary" onPress={handleBrowseClick}>
-                Load another file
-              </Button>
-            </div>
+        {status === 'loading' && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
+            <Spinner aria-label="Decoding audio file" size="lg" />
+            <p className="eyebrow">Decoding</p>
           </div>
         )}
 
-        <input
-          ref={inputRef}
-          accept="audio/*"
-          className="hidden"
-          type="file"
-          onChange={handleFileChange}
-        />
+        {(status === 'idle' || status === 'error') && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center p-5">
+            <IdlePrompt onBrowseClick={handleBrowseClick} onFileDrop={handleFileDrop} />
+          </div>
+        )}
+      </div>
+
+      <Card.Content className="flex flex-col gap-5 p-5">
+        {hasTrack && (
+          <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
+        )}
+
+        <div className="flex flex-wrap items-center gap-4">
+          <PlayPauseButton
+            isPlaying={isLive}
+            isDisabled={!hasTrack}
+            onToggle={handleToggle}
+          />
+          <LoopButton isLooping={loop} onToggle={setLoop} />
+          <MuteButton isMuted={muted} onToggle={setMuted} />
+          <VolumeSlider volume={volume} isMuted={muted} onVolumeChange={setVolume} />
+          {hasTrack && (
+            <Button
+              variant="tertiary"
+              size="sm"
+              onPress={handleBrowseClick}
+              className="ml-auto"
+            >
+              Load another file
+            </Button>
+          )}
+        </div>
+
+        {!hasTrack && (
+          <>
+            <Separator />
+            <div className="flex flex-col gap-1 text-xs text-muted">
+              <p className="eyebrow">Tip</p>
+              <p>
+                Drop an MP3, WAV, FLAC, OGG, or M4A file anywhere on the screen
+                to load it.
+              </p>
+            </div>
+          </>
+        )}
       </Card.Content>
+
+      <input
+        ref={inputRef}
+        accept="audio/*"
+        className="hidden"
+        type="file"
+        onChange={handleFileChange}
+      />
     </Card>
   )
 }

@@ -9,19 +9,14 @@ interface VisualizerCanvasProps {
   mode: VisualizerMode
 }
 
-/**
- * Deep module: draws whatever `analyserNode` produces, or nothing if it's
- * `null`. Props-only — no Zustand, no knowledge of playback status, file
- * names, or controls. Whoever wires the analyser node in (e.g. PlayerCard)
- * owns that context; this component only turns analyser data into pixels,
- * which keeps it reusable and testable in isolation from Player.
- */
+const FREQ_TICKS = ['60', '250', '1k', '4k', '16k']
+const DB_TICKS = ['0', '-20', '-40', '-60']
+const AXIS_GUTTER_PX = 28
+
 export function VisualizerCanvas({ analyserNode, mode }: VisualizerCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sizeRef = useRef<CanvasSize>({ width: 0, height: 0 })
 
-  // Keeps the canvas's backing store at `CSS size * devicePixelRatio` so
-  // bars stay sharp regardless of container size or screen density.
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
@@ -31,13 +26,14 @@ export function VisualizerCanvas({ analyserNode, mode }: VisualizerCanvasProps) 
       const entry = entries[0]
       if (!entry) return
 
-      const { width, height } = entry.contentRect
+      const rect = canvas.getBoundingClientRect()
+      const drawWidth = Math.max(0, rect.width - AXIS_GUTTER_PX * 2)
       const dpr = window.devicePixelRatio || 1
 
-      canvas.width = Math.round(width * dpr)
-      canvas.height = Math.round(height * dpr)
+      canvas.width = Math.round(drawWidth * dpr)
+      canvas.height = Math.round(rect.height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      sizeRef.current = { width, height }
+      sizeRef.current = { width: drawWidth, height: rect.height }
     })
 
     observer.observe(canvas)
@@ -46,5 +42,34 @@ export function VisualizerCanvas({ analyserNode, mode }: VisualizerCanvasProps) 
 
   useVisualizerLoop({ analyserNode, mode, canvasRef, sizeRef })
 
-  return <canvas ref={canvasRef} className="h-32 w-full rounded-xl bg-default" />
+  return (
+    <div className="relative w-full">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-0 flex w-7 flex-col justify-between py-1 pr-1 text-right text-[10px] text-muted"
+      >
+        {FREQ_TICKS.map((label) => (
+          <span key={label} className="numeric">
+            {label}
+          </span>
+        ))}
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 flex w-7 flex-col justify-between py-1 pl-1 text-left text-[10px] text-muted"
+      >
+        {DB_TICKS.map((label) => (
+          <span key={label} className="numeric">
+            {label}
+          </span>
+        ))}
+      </div>
+      <canvas
+        ref={canvasRef}
+        aria-label="Audio visualizer"
+        className="block h-44 w-full"
+        style={{ marginLeft: AXIS_GUTTER_PX, marginRight: AXIS_GUTTER_PX }}
+      />
+    </div>
+  )
 }

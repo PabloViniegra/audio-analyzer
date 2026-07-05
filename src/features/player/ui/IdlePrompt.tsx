@@ -41,12 +41,14 @@ export function IdlePrompt({ onBrowseClick, onFileDrop }: IdlePromptProps) {
   return (
     <Surface
       aria-label="Browse or drop an audio file"
-      className={`flex w-full cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 p-10 text-center transition hover:opacity-80 ${
-        isDraggingOver ? 'border-accent bg-accent-soft' : 'border-transparent'
+      className={`flex w-full max-w-sm cursor-pointer flex-col items-center gap-3 rounded-2xl p-8 text-center transition ${
+        isDraggingOver
+          ? 'border-accent bg-accent-soft ring-1 ring-accent'
+          : 'border-border bg-surface-secondary hover:bg-surface-tertiary'
       }`}
       role="button"
       tabIndex={0}
-      variant="secondary"
+      variant="transparent"
       onClick={onBrowseClick}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -54,10 +56,43 @@ export function IdlePrompt({ onBrowseClick, onFileDrop }: IdlePromptProps) {
       onDrop={handleDrop}
       onKeyDown={handleKeyDown}
     >
-      <p className="pointer-events-none text-sm font-medium">No track loaded</p>
-      <p className="pointer-events-none text-xs text-muted">
-        Click or drop an audio file to load it
-      </p>
+      <DropGlyph active={isDraggingOver} />
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-foreground">
+          {isDraggingOver ? 'Release to load' : 'Drop a track to load'}
+        </p>
+        <p className="text-xs text-muted">
+          or click to browse · mp3, wav, flac, ogg, m4a
+        </p>
+      </div>
     </Surface>
+  )
+}
+
+function DropGlyph({ active }: { active: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={`flex size-12 items-center justify-center rounded-full border transition ${
+        active
+          ? 'border-accent bg-accent-soft text-accent'
+          : 'border-border bg-surface text-muted'
+      }`}
+    >
+      <svg
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path d="M12 4v12" />
+        <path d="m6 10 6-6 6 6" />
+        <path d="M5 20h14" />
+      </svg>
+    </div>
   )
 }

@@ -7,11 +7,6 @@ interface ModeToggleProps {
   onModeChange: (mode: VisualizerMode) => void
 }
 
-/**
- * Lets the user switch the Visualizer between Bars mode and Waveform mode.
- * Purely a controlled display-preference control — takes the current mode
- * and reports changes upward, no knowledge of Player or the analyser node.
- */
 export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
   function handleSelectionChange(keys: Set<Key>) {
     const [next] = keys
@@ -24,13 +19,54 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
       disallowEmptySelection
       selectedKeys={[mode]}
       selectionMode="single"
+      size="sm"
       onSelectionChange={handleSelectionChange}
     >
-      <ToggleButton id="bars">Bars</ToggleButton>
+      <ToggleButton id="bars">
+        <BarsIcon />
+        <span>Bars</span>
+      </ToggleButton>
       <ToggleButton id="waveform">
         <ToggleButtonGroup.Separator />
-        Waveform
+        <WaveIcon />
+        <span>Wave</span>
       </ToggleButton>
     </ToggleButtonGroup>
+  )
+}
+
+function BarsIcon() {
+  return (
+    <svg
+      aria-hidden
+      className="size-3.5"
+      fill="currentColor"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect height="14" rx="1" width="3" x="3" y="6" />
+      <rect height="20" rx="1" width="3" x="8" y="2" />
+      <rect height="10" rx="1" width="3" x="13" y="8" />
+      <rect height="16" rx="1" width="3" x="18" y="4" />
+    </svg>
+  )
+}
+
+function WaveIcon() {
+  return (
+    <svg
+      aria-hidden
+      className="size-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M2 12h2" />
+      <path d="M6 8c2 0 2 8 4 8s2-8 4-8 2 8 4 8h4" />
+    </svg>
   )
 }

@@ -5,18 +5,10 @@ export interface WaveformPoint {
   y: number
 }
 
-/** Trace stroke color. Matches Bars mode's fill so both modes read as one system. */
-const WAVEFORM_COLOR = '#8b5cf6'
+const WAVEFORM_COLOR = '#c4b5fd'
+const WAVEFORM_GLOW = 'rgba(196, 181, 253, 0.4)'
+const WAVEFORM_LINE_WIDTH = 1.8
 
-/** Trace stroke width, in canvas pixels. */
-const WAVEFORM_LINE_WIDTH = 2
-
-/**
- * Pure layout math: maps time-domain byte data (one amplitude sample per
- * point, 0-255, with 128 as the zero-signal midline) to a list of points
- * tracing the waveform left to right across `size`. No canvas/DOM involved,
- * so this is the part to unit test directly.
- */
 export function computeWaveformPoints(
   timeData: ArrayLike<number>,
   size: CanvasSize,
@@ -35,12 +27,6 @@ export function computeWaveformPoints(
   return points
 }
 
-/**
- * Draws Waveform mode into `ctx`: clears the canvas, then strokes a single
- * continuous path through `computeWaveformPoints`. Imperative shell only —
- * all layout math lives in `computeWaveformPoints` so it stays testable
- * without a real canvas.
- */
 export function drawWaveform(
   ctx: CanvasRenderingContext2D,
   timeData: ArrayLike<number>,
@@ -53,10 +39,17 @@ export function drawWaveform(
 
   ctx.strokeStyle = WAVEFORM_COLOR
   ctx.lineWidth = WAVEFORM_LINE_WIDTH
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.shadowBlur = 8
+  ctx.shadowColor = WAVEFORM_GLOW
+
   ctx.beginPath()
   ctx.moveTo(points[0].x, points[0].y)
   for (let i = 1; i < points.length; i++) {
     ctx.lineTo(points[i].x, points[i].y)
   }
   ctx.stroke()
+
+  ctx.shadowBlur = 0
 }
