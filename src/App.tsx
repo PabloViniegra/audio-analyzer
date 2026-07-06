@@ -1,5 +1,6 @@
 import { Toast } from "@heroui/react"
 import { domAnimation, LazyMotion, MotionConfig } from "framer-motion"
+import { CursorRipple } from "./features/cursor/ui/CursorRipple"
 import { PlayerCard } from "./features/player/ui/PlayerCard"
 
 function App() {
@@ -16,14 +17,15 @@ function App() {
                 />
                 <p className="eyebrow">Local · Spectrum Inspector · v1</p>
               </div>
-              <h1 className="text-[clamp(2.25rem,5vw,3.25rem)] font-semibold leading-[0.95] tracking-[-0.035em] text-foreground">
+              <h1 className="font-display text-[clamp(2.75rem,7vw,4.5rem)] font-black uppercase leading-[0.9] tracking-[0.01em] text-foreground">
                 Audio <span className="text-accent">Analyzer</span>
               </h1>
               <p className="max-w-md text-[0.95rem] leading-relaxed text-muted">
                 Drop a local track. Watch the spectrum move. Listen with intent.
               </p>
             </div>
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-2 self-end sm:flex sm:flex-col sm:items-end sm:gap-1">
+            <dl className="plate relative grid grid-cols-2 gap-x-8 gap-y-2.5 self-end rounded-sm px-5 py-4 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
+              <span aria-hidden className="rack-screw -top-1.5 -left-1.5" />
               <div className="flex items-baseline gap-3">
                 <dt className="eyebrow">Engine</dt>
                 <dd className="numeric text-sm text-foreground">Web Audio</dd>
@@ -56,6 +58,7 @@ function App() {
 
           <Toast.Provider />
         </main>
+        <CursorRipple />
       </MotionConfig>
     </LazyMotion>
   )

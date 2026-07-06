@@ -82,7 +82,11 @@ export function PlayerCard() {
   const isLive = status === "playing"
 
   return (
-    <Card className="relative overflow-hidden p-0 ring-1 ring-border/60">
+    <Card className="chassis relative overflow-hidden p-0">
+      <span aria-hidden className="rack-screw top-2.5 left-2.5 z-10" />
+      <span aria-hidden className="rack-screw top-2.5 right-2.5 z-10" />
+      <span aria-hidden className="rack-screw bottom-2.5 left-2.5 z-10" />
+      <span aria-hidden className="rack-screw bottom-2.5 right-2.5 z-10" />
       <div className="relative flex items-center justify-between border-b border-border bg-surface-secondary/60 px-5 py-2.5 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <span

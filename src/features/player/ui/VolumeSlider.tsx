@@ -30,25 +30,23 @@ export function VolumeSlider({ volume, isMuted, onVolumeChange }: VolumeSliderPr
   }
 
   return (
-    <div className="flex min-w-44 flex-1 items-center gap-3">
-      <Slider
-        aria-label="Volume"
-        className="flex-1"
-        maxValue={1}
-        minValue={0}
-        step={0.01}
-        value={displayLevel}
-        onChange={handleChange}
-        onChangeEnd={handleChangeEnd}
-      >
-        <Slider.Output className="numeric text-xs text-muted">
-          {isMuted ? '−∞ dB' : `${dbValue} dB`}
-        </Slider.Output>
-        <Slider.Track className="h-1.5">
-          <Slider.Fill className={isMuted ? 'bg-default' : 'bg-accent'} />
-          <Slider.Thumb className="size-3.5 border-2 border-background bg-accent" />
-        </Slider.Track>
-      </Slider>
-    </div>
+    <Slider
+      aria-label="Volume"
+      className="flex min-w-44 flex-1 flex-row items-center gap-3"
+      maxValue={1}
+      minValue={0}
+      step={0.01}
+      value={displayLevel}
+      onChange={handleChange}
+      onChangeEnd={handleChangeEnd}
+    >
+      <Slider.Track className="h-1.5 flex-1">
+        <Slider.Fill className={isMuted ? 'bg-default' : 'bg-accent'} />
+        <Slider.Thumb className="size-3.5 border-2 border-background bg-accent" />
+      </Slider.Track>
+      <Slider.Output className="numeric w-14 shrink-0 text-right text-xs text-muted">
+        {isMuted ? '−∞ dB' : `${dbValue} dB`}
+      </Slider.Output>
+    </Slider>
   )
 }
