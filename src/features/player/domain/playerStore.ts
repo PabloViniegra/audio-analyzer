@@ -5,6 +5,10 @@ import { decodeAudioFile } from './decodeAudioFile'
 
 export type PlayerStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'error'
 
+export const SPEED_MIN = 0.5
+export const SPEED_MAX = 2
+export const SPEED_STEP = 0.25
+
 interface PlayerData {
   status: PlayerStatus
   errorMessage: string | null
@@ -34,6 +38,12 @@ interface PlayerData {
   muted: boolean
   /** When true, reaching the end of the Track replays it instead of stopping. */
   loop: boolean
+  /**
+   * Playback rate multiplier in [SPEED_MIN, SPEED_MAX], SPEED_STEP increments.
+   * Backed by the native `AudioBufferSourceNode.playbackRate` — changes pitch
+   * along with rate. Persists across Track loads, same as volume/loop.
+   */
+  speed: number
 }
 
 interface PlayerState extends PlayerData {
@@ -61,6 +71,8 @@ interface PlayerState extends PlayerData {
    * looping.
    */
   setLoop: (loop: boolean) => void
+  /** Sets the playback rate multiplier, clamped to [SPEED_MIN, SPEED_MAX]. */
+  setSpeed: (rate: number) => void
   dismissError: () => void
 }
 
@@ -76,6 +88,7 @@ export const initialPlayerState: PlayerData = {
   volume: 1,
   muted: false,
   loop: false,
+  speed: 1,
 }
 
 /**
@@ -135,8 +148,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   play() {
-    const { status, audioBuffer, audioContext, audioGraph, currentTime, volume, muted, loop } =
-      get()
+    const {
+      status,
+      audioBuffer,
+      audioContext,
+      audioGraph,
+      currentTime,
+      volume,
+      muted,
+      loop,
+      speed,
+    } = get()
     if (!audioBuffer || (status !== 'ready' && status !== 'paused')) return
 
     if (audioGraph && audioContext) {
@@ -155,6 +177,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // looping source never fires `onended` on its own, so the reset-to-
     // 'ready' below simply won't run again until loop is turned off.
     graph.source.loop = loop
+    graph.source.playbackRate.value = speed
     graph.source.onended = resetToReadyWhenCurrent(set, get, graph.source)
     // Start from `currentTime` rather than always 0, so a seek performed
     // before the first play() (while there's no graph yet) is honored.
@@ -163,7 +186,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       status: 'playing',
       audioContext: context,
       audioGraph: graph,
-      originTime: context.currentTime - currentTime,
+      // Divided by `speed` so updateCurrentTime's elapsed*speed reconstructs
+      // `currentTime` at this exact instant rather than assuming 1x.
+      originTime: context.currentTime - currentTime / speed,
     })
   },
 
@@ -178,7 +203,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   seek(time) {
-    const { status, audioBuffer, audioContext, audioGraph, loop } = get()
+    const { status, audioBuffer, audioContext, audioGraph, loop, speed } = get()
     if (!audioBuffer) return
     if (status !== 'playing' && status !== 'paused' && status !== 'ready') return
 
@@ -207,23 +232,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const newSource = audioContext.createBufferSource()
     newSource.buffer = audioBuffer
     newSource.connect(audioGraph.gainNode)
-    // The replacement source starts fresh — it doesn't inherit `loop` from
-    // the old one, so it has to be carried over explicitly.
+    // The replacement source starts fresh — it doesn't inherit `loop` or
+    // `speed` from the old one, so both have to be carried over explicitly.
     newSource.loop = loop
+    newSource.playbackRate.value = speed
     newSource.onended = resetToReadyWhenCurrent(set, get, newSource)
     newSource.start(0, target)
 
     set({
       audioGraph: { ...audioGraph, source: newSource },
       currentTime: target,
-      originTime: audioContext.currentTime - target,
+      originTime: audioContext.currentTime - target / speed,
     })
   },
 
   updateCurrentTime() {
-    const { status, audioContext, duration, originTime, loop } = get()
+    const { status, audioContext, duration, originTime, loop, speed } = get()
     if (status !== 'playing' || !audioContext) return
-    const elapsed = audioContext.currentTime - originTime
+    const elapsed = (audioContext.currentTime - originTime) * speed
     // A native-looping source keeps advancing past `duration` every lap
     // instead of ending, so wrap it back into a single lap instead of
     // clamping it flat against the end.
@@ -251,7 +277,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setLoop(loop) {
-    const { loop: current, audioGraph, audioContext } = get()
+    const { loop: current, audioGraph, audioContext, speed } = get()
     if (loop === current) return
 
     // Flips live on an already-playing source — no rebuild needed.
@@ -267,11 +293,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // hasn't flipped yet — then rebase originTime onto it, so it lines up
       // with the source's actual remaining (now non-looping) playback.
       get().updateCurrentTime()
-      set({ loop, originTime: audioContext.currentTime - get().currentTime })
+      set({ loop, originTime: audioContext.currentTime - get().currentTime / speed })
       return
     }
 
     set({ loop })
+  },
+
+  setSpeed(rate) {
+    const target = clamp(rate, SPEED_MIN, SPEED_MAX)
+    const { speed: current, audioGraph, audioContext, status } = get()
+    if (target === current) return
+
+    // Flips live on an already-playing (or paused) source — no rebuild
+    // needed, same as loop.
+    if (audioGraph) {
+      audioGraph.source.playbackRate.value = target
+    }
+
+    if (audioContext && (status === 'playing' || status === 'paused')) {
+      // Snapshot the exact position first — same idea as setLoop's
+      // off-transition. While playing this refreshes `currentTime`; while
+      // paused it's already frozen-accurate from pause(), so the call is a
+      // harmless no-op. Rebasing originTime under the NEW speed keeps a
+      // later resume (which itself doesn't rebase, see play()) continuous.
+      get().updateCurrentTime()
+      set({ speed: target, originTime: audioContext.currentTime - get().currentTime / target })
+      return
+    }
+
+    set({ speed: target })
   },
 
   dismissError() {

@@ -23,3 +23,9 @@ _Avoid_: Spectrum, Equalizer display (implies audio processing, which this doesn
 **Waveform mode**:
 Visualizer mode showing time-domain data (raw signal amplitude over time) as a continuous trace.
 _Avoid_: Oscilloscope
+
+**Speed**:
+Playback rate multiplier for the current Track (0.5x–2x, 0.25x steps), adjusted via the Player's
+stepper control. Backed by the native `AudioBufferSourceNode.playbackRate` — changes pitch along
+with rate, no time-stretching. Persists across Track loads, same as volume/loop.
+_Avoid_: Rate (ambiguous with sample rate), Tempo (implies musical BPM)

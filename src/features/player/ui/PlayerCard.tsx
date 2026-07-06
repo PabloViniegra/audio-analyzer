@@ -10,6 +10,7 @@ import { VisualizerCanvas, type VisualizerMode } from "../../visualizer/ui/Visua
 import { MuteButton } from "./MuteButton"
 import { PlayPauseButton } from "./PlayPauseButton"
 import { SeekBar } from "./SeekBar"
+import { SpeedControl } from "./SpeedControl"
 import { VolumeSlider } from "./VolumeSlider"
 
 const STATUS_LABEL: Record<PlayerStatus, string> = {
@@ -32,6 +33,7 @@ export function PlayerCard() {
   const volume = usePlayerStore((state) => state.volume)
   const muted = usePlayerStore((state) => state.muted)
   const loop = usePlayerStore((state) => state.loop)
+  const speed = usePlayerStore((state) => state.speed)
   const loadFile = usePlayerStore((state) => state.loadFile)
   const play = usePlayerStore((state) => state.play)
   const pause = usePlayerStore((state) => state.pause)
@@ -39,6 +41,7 @@ export function PlayerCard() {
   const setVolume = usePlayerStore((state) => state.setVolume)
   const setMuted = usePlayerStore((state) => state.setMuted)
   const setLoop = usePlayerStore((state) => state.setLoop)
+  const setSpeed = usePlayerStore((state) => state.setSpeed)
   const dismissError = usePlayerStore((state) => state.dismissError)
 
   usePlaybackTicker()
@@ -142,6 +145,7 @@ export function PlayerCard() {
           <LoopButton isLooping={loop} onToggle={setLoop} />
           <MuteButton isMuted={muted} onToggle={setMuted} />
           <VolumeSlider volume={volume} isMuted={muted} onVolumeChange={setVolume} />
+          <SpeedControl speed={speed} onSpeedChange={setSpeed} />
           {hasTrack && (
             <Button
               className="ml-auto"

@@ -27,6 +27,7 @@ class MockAudioContext {
     ...createMockNode(),
     buffer: null as AudioBuffer | null,
     loop: false,
+    playbackRate: { value: 1 },
     onended: null as (() => void) | null,
     start: vi.fn(),
     stop: vi.fn(),
@@ -465,6 +466,118 @@ describe('usePlayerStore', () => {
       await usePlayerStore.getState().loadFile(fakeFile('second.mp3'))
 
       expect(usePlayerStore.getState().loop).toBe(true)
+    })
+  })
+
+  describe('speed transitions', () => {
+    async function loadReadyFile(duration = 120) {
+      vi.stubGlobal(
+        'OfflineAudioContext',
+        class {
+          decodeAudioData = vi.fn().mockResolvedValue({ duration } as AudioBuffer)
+        },
+      )
+      await usePlayerStore.getState().loadFile(fakeFile())
+    }
+
+    it('defaults to 1x speed', () => {
+      expect(usePlayerStore.getState().speed).toBe(1)
+    })
+
+    it('setSpeed updates the stored value and clamps to [0.5, 2]', () => {
+      usePlayerStore.getState().setSpeed(1.5)
+      expect(usePlayerStore.getState().speed).toBe(1.5)
+
+      usePlayerStore.getState().setSpeed(3)
+      expect(usePlayerStore.getState().speed).toBe(2)
+
+      usePlayerStore.getState().setSpeed(0.1)
+      expect(usePlayerStore.getState().speed).toBe(0.5)
+    })
+
+    it('play() applies a speed set before the first play() to the freshly built source', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().setSpeed(1.5)
+
+      usePlayerStore.getState().play()
+
+      expect(usePlayerStore.getState().audioGraph?.source.playbackRate.value).toBe(1.5)
+    })
+
+    it('setSpeed flips the native playbackRate live on an already-playing source, without rebuilding the graph', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().play()
+      const graphBeforeChange = usePlayerStore.getState().audioGraph
+
+      usePlayerStore.getState().setSpeed(1.5)
+
+      expect(usePlayerStore.getState().audioGraph).toBe(graphBeforeChange)
+      expect(usePlayerStore.getState().audioGraph?.source.playbackRate.value).toBe(1.5)
+    })
+
+    it('setSpeed rebases originTime so playback continues from the same position at the new rate', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().play()
+      const context = usePlayerStore.getState().audioContext as unknown as MockAudioContext
+
+      context.currentTime = 4
+      usePlayerStore.getState().updateCurrentTime()
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(4)
+
+      usePlayerStore.getState().setSpeed(2)
+      // No audio-clock time has passed yet — position must hold at 4, not
+      // jump, since a naive rebase would otherwise scale the existing
+      // elapsed time by the new rate instead of anchoring at this instant.
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(4)
+
+      context.currentTime = 6 // 2 more real seconds, now advancing at 2x
+      usePlayerStore.getState().updateCurrentTime()
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(8)
+    })
+
+    it('setSpeed while paused applies live and keeps position correct after resuming', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().play()
+      const context = usePlayerStore.getState().audioContext as unknown as MockAudioContext
+      context.currentTime = 4
+      usePlayerStore.getState().pause()
+
+      usePlayerStore.getState().setSpeed(2)
+
+      expect(usePlayerStore.getState().audioGraph?.source.playbackRate.value).toBe(2)
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(4)
+      expect(usePlayerStore.getState().status).toBe('paused')
+
+      usePlayerStore.getState().play()
+      context.currentTime = 6 // 2 real seconds since resume, at 2x
+      usePlayerStore.getState().updateCurrentTime()
+
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(8)
+    })
+
+    it('seek() while at a non-1x speed carries the rate onto the new source and keeps timing accurate', async () => {
+      await loadReadyFile()
+      usePlayerStore.getState().play()
+      usePlayerStore.getState().setSpeed(2)
+      const context = usePlayerStore.getState().audioContext as unknown as MockAudioContext
+      context.currentTime = 10
+
+      usePlayerStore.getState().seek(30)
+
+      expect(usePlayerStore.getState().audioGraph?.source.playbackRate.value).toBe(2)
+      expect(usePlayerStore.getState().currentTime).toBe(30)
+
+      context.currentTime = 11 // 1 real second later, at 2x
+      usePlayerStore.getState().updateCurrentTime()
+      expect(usePlayerStore.getState().currentTime).toBeCloseTo(32)
+    })
+
+    it('loading a new file preserves the current speed setting', async () => {
+      usePlayerStore.getState().setSpeed(1.75)
+
+      await usePlayerStore.getState().loadFile(fakeFile('second.mp3'))
+
+      expect(usePlayerStore.getState().speed).toBe(1.75)
     })
   })
 })
