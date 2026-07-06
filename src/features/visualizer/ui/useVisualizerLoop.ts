@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { drawBars, type CanvasSize } from '../domain/drawBars'
 import { drawWaveform } from '../domain/drawWaveform'
 
@@ -48,9 +48,16 @@ export function useVisualizerLoop({
   canvasRef,
   sizeRef,
 }: UseVisualizerLoopArgs): void {
+  // ponytail: React Compiler flags mutating `node.fftSize` as a props mutation.
+  // Routing the node through a ref (assigned inside the effect, never during
+  // render) is the same escape hatch as mutating a DOM node via ref.current —
+  // sanctioned for imperative host objects.
+  const nodeRef = useRef<AnalyserNode | null>(null)
+
   useEffect(() => {
-    if (!analyserNode) return
-    const node = analyserNode
+    nodeRef.current = analyserNode
+    const node = nodeRef.current
+    if (!node) return
 
     const ctx = canvasRef.current?.getContext('2d')
     if (!ctx) return

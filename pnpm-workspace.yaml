@@ -1,0 +1,9 @@
+minimumReleaseAge: 1440
+trustPolicy: no-downgrade
+# ponytail: semver@6.3.1 (Babel's transitive dep) trips this lockfile's first-ever
+# trust check because the lockfile predates pnpm's trust-signal tracking, not
+# because of a real takeover - maintainers/signature verified clean against the
+# registry. Re-check if `pnpm install` ever flags a new entry here.
+trustPolicyExclude:
+  - semver@6.3.1
+blockExoticSubdeps: true

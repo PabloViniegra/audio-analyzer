@@ -7,6 +7,11 @@ interface IdlePromptProps {
   onFileDrop: (file: File) => void
 }
 
+function handleDragOver(event: DragEvent<HTMLDivElement>) {
+  event.preventDefault()
+  event.dataTransfer.dropEffect = "copy"
+}
+
 export function IdlePrompt({ onBrowseClick, onFileDrop }: IdlePromptProps) {
   const [isDraggingOver, setIsDraggingOver] = useState(false)
 
@@ -19,11 +24,6 @@ export function IdlePrompt({ onBrowseClick, onFileDrop }: IdlePromptProps) {
   function handleDragEnter(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
     setIsDraggingOver(true)
-  }
-
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = "copy"
   }
 
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {

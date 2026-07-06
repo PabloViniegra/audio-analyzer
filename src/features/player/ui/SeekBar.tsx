@@ -8,13 +8,13 @@ interface SeekBarProps {
   onSeek: (time: number) => void
 }
 
+function toSeconds(value: number | number[]) {
+  return Array.isArray(value) ? value[0] : value
+}
+
 export function SeekBar({ currentTime, duration, onSeek }: SeekBarProps) {
   const [draftTime, setDraftTime] = useState<number | null>(null)
   const displayTime = draftTime ?? currentTime
-
-  function toSeconds(value: number | number[]) {
-    return Array.isArray(value) ? value[0] : value
-  }
 
   function handleChange(value: number | number[]) {
     setDraftTime(toSeconds(value))

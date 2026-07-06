@@ -9,15 +9,15 @@ interface VolumeSliderProps {
 
 const MIN_DB = -60
 
+function toLevel(value: number | number[]) {
+  return Array.isArray(value) ? value[0] : value
+}
+
 export function VolumeSlider({ volume, isMuted, onVolumeChange }: VolumeSliderProps) {
   const [draftLevel, setDraftLevel] = useState<number | null>(null)
   const displayLevel = draftLevel ?? volume
   const dbValue =
     displayLevel <= 0 ? MIN_DB : Math.round(20 * Math.log10(displayLevel))
-
-  function toLevel(value: number | number[]) {
-    return Array.isArray(value) ? value[0] : value
-  }
 
   function handleChange(value: number | number[]) {
     const next = toLevel(value)
