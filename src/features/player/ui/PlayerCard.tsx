@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react"
 import { useEffect, useRef, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Button, Card, Separator, Spinner, toast } from "@heroui/react"
 import { usePlaybackTicker } from "../domain/usePlaybackTicker"
 import { usePlayerStore, type PlayerStatus } from "../domain/playerStore"
@@ -117,24 +118,50 @@ export function PlayerCard() {
 
         <VisualizerCanvas analyserNode={analyserNode} mode={mode} />
 
-        {status === "loading" && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-md">
-            <Spinner aria-label="Decoding audio file" size="lg" />
-            <p className="eyebrow">Decoding</p>
-          </div>
-        )}
+        <AnimatePresence>
+          {status === "loading" && (
+            <motion.div
+              key="loading"
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-md"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Spinner aria-label="Decoding audio file" size="lg" />
+              <p className="eyebrow">Decoding</p>
+            </motion.div>
+          )}
 
-        {(status === "idle" || status === "error") && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center p-6">
-            <IdlePrompt onBrowseClick={handleBrowseClick} onFileDrop={handleFileDrop} />
-          </div>
-        )}
+          {(status === "idle" || status === "error") && (
+            <motion.div
+              key="idle"
+              animate={{ opacity: 1, scale: 1 }}
+              className="absolute inset-0 z-10 flex items-center justify-center p-6"
+              exit={{ opacity: 0, scale: 0.97 }}
+              initial={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.2 }}
+            >
+              <IdlePrompt onBrowseClick={handleBrowseClick} onFileDrop={handleFileDrop} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <Card.Content className="flex flex-col gap-6 p-6">
-        {hasTrack && (
-          <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
-        )}
+        <AnimatePresence>
+          {hasTrack && (
+            <motion.div
+              key="seek"
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              initial={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2 }}
+            >
+              <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <PlayPauseButton
@@ -158,18 +185,27 @@ export function PlayerCard() {
           )}
         </div>
 
-        {!hasTrack && (
-          <>
-            <Separator className="bg-border/60" />
-            <div className="flex items-start gap-4">
-              <span className="eyebrow shrink-0 pt-0.5">Tip</span>
-              <p className="text-xs leading-relaxed text-muted">
-                Drop an MP3, WAV, FLAC, OGG, or M4A file anywhere on the screen
-                to load it. Everything decodes locally in your browser.
-              </p>
-            </div>
-          </>
-        )}
+        <AnimatePresence>
+          {!hasTrack && (
+            <motion.div
+              key="tip"
+              animate={{ opacity: 1 }}
+              className="flex flex-col gap-6"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Separator className="bg-border/60" />
+              <div className="flex items-start gap-4">
+                <span className="eyebrow shrink-0 pt-0.5">Tip</span>
+                <p className="text-xs leading-relaxed text-muted">
+                  Drop an MP3, WAV, FLAC, OGG, or M4A file anywhere on the screen
+                  to load it. Everything decodes locally in your browser.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card.Content>
 
       <input
