@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "react"
 import { useEffect, useRef, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, m } from "framer-motion"
 import { Button, Card, Separator, Spinner, toast } from "@heroui/react"
 import { usePlaybackTicker } from "../domain/usePlaybackTicker"
 import { usePlayerStore, type PlayerStatus } from "../domain/playerStore"
@@ -120,7 +120,7 @@ export function PlayerCard() {
 
         <AnimatePresence>
           {status === "loading" && (
-            <motion.div
+            <m.div
               key="loading"
               animate={{ opacity: 1 }}
               className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-md"
@@ -130,11 +130,11 @@ export function PlayerCard() {
             >
               <Spinner aria-label="Decoding audio file" size="lg" />
               <p className="eyebrow">Decoding</p>
-            </motion.div>
+            </m.div>
           )}
 
           {(status === "idle" || status === "error") && (
-            <motion.div
+            <m.div
               key="idle"
               animate={{ opacity: 1, scale: 1 }}
               className="absolute inset-0 z-10 flex items-center justify-center p-6"
@@ -143,7 +143,7 @@ export function PlayerCard() {
               transition={{ duration: 0.2 }}
             >
               <IdlePrompt onBrowseClick={handleBrowseClick} onFileDrop={handleFileDrop} />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
@@ -151,7 +151,7 @@ export function PlayerCard() {
       <Card.Content className="flex flex-col gap-6 p-6">
         <AnimatePresence>
           {hasTrack && (
-            <motion.div
+            <m.div
               key="seek"
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
@@ -159,7 +159,7 @@ export function PlayerCard() {
               transition={{ duration: 0.2 }}
             >
               <SeekBar currentTime={currentTime} duration={duration} onSeek={seek} />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -187,7 +187,7 @@ export function PlayerCard() {
 
         <AnimatePresence>
           {!hasTrack && (
-            <motion.div
+            <m.div
               key="tip"
               animate={{ opacity: 1 }}
               className="flex flex-col gap-6"
@@ -203,7 +203,7 @@ export function PlayerCard() {
                   to load it. Everything decodes locally in your browser.
                 </p>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </Card.Content>
