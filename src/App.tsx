@@ -43,17 +43,42 @@ function App() {
 
           <PlayerCard />
 
-          <footer className="mt-auto flex flex-col gap-3 pt-8 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
-            <p>
-              All processing happens in your browser. Nothing is uploaded, ever.
-            </p>
-            <p className="numeric flex items-center gap-2">
-              <span
-                aria-hidden
-                className="inline-block size-1 rounded-full bg-muted-foreground/60"
-              />
-              <span>audio · analyzer · 0.1.0</span>
-            </p>
+          <footer className="chassis relative mt-auto overflow-hidden rounded-sm">
+            <span aria-hidden className="rack-screw top-2.5 left-2.5" />
+            <span aria-hidden className="rack-screw top-2.5 right-2.5" />
+            <span aria-hidden className="rack-screw bottom-2.5 left-2.5" />
+            <span aria-hidden className="rack-screw bottom-2.5 right-2.5" />
+            <div className="relative flex items-center justify-between border-b border-border bg-surface-secondary/60 px-5 py-2.5 backdrop-blur-sm">
+              <p className="eyebrow">Nameplate · Specs</p>
+              <p className="numeric text-[11px] uppercase tracking-[0.16em] text-muted">
+                audio · analyzer · v0.1.0
+              </p>
+            </div>
+            <dl className="grid grid-cols-1 divide-y divide-border bg-surface/40 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              <div className="flex flex-col gap-1.5 px-5 py-4">
+                <dt className="eyebrow">Privacy</dt>
+                <dd className="text-xs leading-relaxed text-foreground">
+                  All processing happens in your browser. Nothing is uploaded,
+                  ever.
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1.5 px-5 py-4">
+                <dt className="eyebrow">Stack</dt>
+                <dd className="numeric text-xs text-foreground">
+                  Web Audio · Canvas · React 19 · Vite
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1.5 px-5 py-4">
+                <dt className="eyebrow">Build</dt>
+                <dd className="numeric flex items-center gap-2 text-xs text-foreground">
+                  <span
+                    aria-hidden
+                    className="inline-block size-1.5 rounded-full bg-signal shadow-[0_0_8px_var(--signal)]"
+                  />
+                  local · {new Date().getFullYear()}
+                </dd>
+              </div>
+            </dl>
           </footer>
 
           <Toast.Provider />
